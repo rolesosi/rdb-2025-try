@@ -59,6 +59,9 @@ services:
       context: .
       dockerfile: docker/worker/Dockerfile
     container_name: rdb-2025-worker
+    environment:
+      - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
+      - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
     depends_on:
       - redis
     deploy:
