@@ -11,12 +11,12 @@ services:
       - api2
     networks:
       - backend
-#      - payment-processor
+      - payment-processor
     deploy:
       resources:
         limits:
-          cpus: "0.1"
-          memory: "20MB"
+          cpus: "0.05"
+          memory: "15MB"
 
   api1:
     build: 
@@ -27,14 +27,14 @@ services:
       - INSTANCE=1
     networks:
       - backend
-#      - payment-processor      
+      - payment-processor      
     depends_on:
       - redis
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "90MB"
+          cpus: "0.45"
+          memory: "80MB"
 
   api2:
     build: 
@@ -45,14 +45,14 @@ services:
       - INSTANCE=2
     networks:
       - backend
-#      - payment-processor      
+      - payment-processor      
     depends_on:
       - redis
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "90MB"
+          cpus: "0.45"
+          memory: "80MB"
 
   worker:
     build: 
@@ -64,8 +64,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.3"
-          memory: "90MB"
+          cpus: "0.45"
+          memory: "115MB"
 
   redis:
     image: redis:7-alpine
@@ -86,5 +86,5 @@ services:
 networks:
   backend:
     driver: bridge
-#  payment-processor:
-#    external: true          
+  payment-processor:
+    external: true          
