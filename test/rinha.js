@@ -344,3 +344,32 @@ export function handleSummary(data) {
 
   return result;
 }
+
+// Gera tabela Markdown dos recursos
+function salvarRelatorioMarkdown(resources, data) {
+  const now = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+  const timestamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+  const filename = `relatorio_${timestamp}.md`;
+
+  let md = "# Relatório de Recursos e Resultados\n\n";
+  md += "## Recursos definidos no docker-compose\n\n";
+  md += "| Serviço | CPUs | Memória |\n|---|---|---|\n";
+  for (const [name, res] of Object.entries(resources)) {
+    md += `| ${name} | ${res.cpus} | ${res.memory} |\n`;
+  }
+
+  md += "\n## Resultados do K6 (rinha.js)\n\n";
+  md += "| Métrica | Valor |\n|---|---|\n";
+  for (const [key, value] of Object.entries(data)) {
+    if (["string", "number"].includes(typeof value)) {
+      md += `| ${key} | ${value} |\n`;
+    }
+  }
+
+  // Salva em arquivo Markdown
+
+  result[filename] = md;
+  console.log(`\nRelatório salvo em ${filename}`);
+  return result;
+}

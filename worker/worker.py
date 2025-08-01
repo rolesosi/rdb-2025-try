@@ -1,6 +1,6 @@
 import asyncio, aiohttp, json
 import sys
-import aioredis
+import redis.asyncio as aioredis
 import os
 
 DEFAULT_PROCESSOR_URL = os.getenv("DEFAULT_PROCESSOR_URL")
