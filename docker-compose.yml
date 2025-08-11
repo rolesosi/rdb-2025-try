@@ -7,8 +7,10 @@ services:
     ports:
       - "9999:9999"
     depends_on:
-      - api1
-      - api2
+      api1:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
     networks:
       - backend
       - payment-processor
@@ -25,16 +27,24 @@ services:
     container_name: rdb-2025-api1
     environment:
       - INSTANCE=1
+      - REDIS_URL=redis://redis:6379/0  
     networks:
       - backend
       - payment-processor      
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
-          cpus: "0.45"
-          memory: "80MB"
+          cpus: "0.40"
+          memory: "70MB"
 
   api2:
     build: 
@@ -43,16 +53,24 @@ services:
     container_name: rdb-2025-api2
     environment:
       - INSTANCE=2
+      - REDIS_URL=redis://redis:6379/0  
     networks:
       - backend
       - payment-processor      
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
           cpus: "0.45"
-          memory: "80MB"
+          memory: "70MB"
 
   worker:
     build: 
@@ -62,8 +80,13 @@ services:
     environment:
       - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
       - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+      - payment-processor
     deploy:
       resources:
         limits:
@@ -73,8 +96,10 @@ services:
   redis:
     image: redis:7-alpine
     container_name: rdb-2025-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--timeout", "0", "--port", "6379"]
     networks:
       - backend
+      - payment-processor
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -83,8 +108,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.1"
-          memory: "60MB"
+          cpus: "0.15"
+          memory: "80MB"
 
 networks:
   backend:
