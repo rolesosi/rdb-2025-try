@@ -78,7 +78,8 @@ This will report any payments that were submitted but not processed, or processe
 ## Padrão de Commits (Conventional Commits)
 Formato:
 
-```<tipo>[escopo opcional][!]: <descrição curta>
+```
+<tipo>[escopo opcional][!]: <descrição curta>
 
 [corpo opcional]
  
