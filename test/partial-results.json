@@ -1,42 +1,42 @@
 {
   "participante": "anonymous",
-  "total_liquido": 172669.96175,
-  "total_bruto": 279694.5,
-  "total_taxas": 14048.405,
+  "total_liquido": 135670.041,
+  "total_bruto": 219775.6,
+  "total_taxas": 11052.46,
   "descricao": "'total_liquido' é sua pontuação final. Equivale ao seu lucro. Fórmula: total_liquido + (total_liquido * p99.bonus) - (total_liquido * multa.porcentagem)",
   "p99": {
-    "valor": "394.76ms",
+    "valor": "1340.06ms",
     "bonus": "0%",
     "max_requests": 500,
     "descricao": "Fórmula para o bônus: max((11 - p99.valor) * 0.02, 0)"
   },
   "multa": {
     "porcentagem": 0.35,
-    "total": 92976.13325,
+    "total": 73053.099,
     "composicao": {
-      "num_inconsistencias": 7730,
+      "num_inconsistencias": 7054,
       "descricao": "Se 'num_inconsistencias' > 0, há multa de 35%."
     }
   },
   "caixa_dois": {
-    "detectado": false,
+    "detectado": true,
     "descricao": "Se 'lag' for negativo, significa que seu backend registrou mais pagamentos do que solicitado, automaticamente desclassificando sua submissão!"
   },
   "lag": {
-    "num_pagamentos_total": 14055,
-    "num_pagamentos_solicitados": 14103,
-    "lag": 48,
+    "num_pagamentos_total": 11044,
+    "num_pagamentos_solicitados": 10758,
+    "lag": -286,
     "descricao": "Lag é a diferença entre a quantidade de solicitações de pagamentos e o que foi realmente computado pelo backend. Mostra a perda de pagamentos possivelmente por estarem enfileirados."
   },
   "pagamentos_solicitados": {
-    "qtd_sucesso": 14103,
-    "qtd_falha": 2,
+    "qtd_sucesso": 10758,
+    "qtd_falha": 1194,
     "descricao": "'qtd_sucesso' foram requests bem sucedidos para 'POST /payments' e 'qtd_falha' os requests com erro."
   },
   "pagamentos_realizados_default": {
-    "total_bruto": 279057.7,
-    "num_pagamentos": 14023,
-    "total_taxas": 13952.885,
+    "total_bruto": 219138.80000000002,
+    "num_pagamentos": 11012,
+    "total_taxas": 10956.94,
     "descricao": "Informações do backend sobre solicitações de pagamento para o Payment Processor Default."
   },
   "pagamentos_realizados_fallback": {
