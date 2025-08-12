@@ -1,0 +1,27 @@
+# Padrão de Commits - Conventional Commits
+# Formato:
+# <tipo>[escopo opcional][!]: <descrição curta>
+#
+# [corpo opcional]
+#
+# [rodapés opcionais]
+
+# Exemplos:
+# feat(auth): adiciona login com OAuth2
+# fix(parser): corrige erro de parsing com múltiplos espaços
+# feat(api)!: altera formato do retorno da listagem de usuários
+#
+# Rodapé BREAKING CHANGE (opcional, quando houver):
+# BREAKING CHANGE: variáveis de ambiente agora têm precedência sobre arquivos de configuração
+
+# Tipos comuns:
+# feat     → nova funcionalidade
+# fix      → correção de bug
+# docs     → mudanças na documentação
+# style    → formatação (sem impacto no código)
+# refactor → refatoração sem mudar comportamento
+# test     → inclusão ou ajuste de testes
+# chore    → manutenção, build, configs, dependências
+
+# -------------------------------------------------------------
+# Escreva seu commit abaixo seguindo o formato acima:
