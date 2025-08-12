@@ -88,13 +88,13 @@ Formato:
 
 ### Tipos mais usados
 
-feat → nova funcionalidade
-fix → correção de bug
-docs → alteração de documentação
-style → formatação (sem impacto no código)
-refactor → refatoração sem mudar comportamento
-test → adição ou ajuste de testes
-chore → manutenção, build, configs, dependências
+- feat → nova funcionalidade.
+- fix → correção de bug.
+- docs → alteração de documentação.
+- style → formatação (sem impacto no código).
+- refactor → refatoração sem mudar comportamento.
+- test → adição ou ajuste de testes.
+- chore → manutenção, build, configs, dependências.
 
 ### Regras rápidas
 
