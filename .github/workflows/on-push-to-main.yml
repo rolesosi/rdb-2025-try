@@ -65,18 +65,6 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:${{ steps.get_tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:latest
 
-      - name: Make API image public
-        run: |
-          IMAGE_NAME="rdb-2025-try-api"
-          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
-          gh api \
-            -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            /users/${{ github.repository_owner }}/packages/container/${IMAGE_NAME_LOWER}/visibility \
-            -f visibility=public
-        env:
-          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
-
       - name: Build and push Worker image
         uses: docker/build-push-action@v5.1.0
         with:
@@ -88,14 +76,20 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:${{ steps.get_tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:latest
 
-      - name: Make Worker image public
+      - name: Make images public
         run: |
-          IMAGE_NAME="rdb-2025-try-worker"
-          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
-          gh api \
-            -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            /users/${{ github.repository_owner }}/packages/container/${IMAGE_NAME_LOWER}/visibility \
-            -f visibility=public
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+
+          for IMAGE_NAME in rdb-2025-try-api rdb-2025-try-worker; do
+            IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+            echo "🔓 Tornando imagem $IMAGE_NAME_LOWER pública..."
+            
+            gh api \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${OWNER}/${REPO}/packages/container/${IMAGE_NAME_LOWER}/visibility" \
+              -f visibility=public
+          done
         env:
           GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
