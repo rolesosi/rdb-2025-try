@@ -92,4 +92,4 @@ jobs:
               -f visibility=public
           done
         env:
-          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
