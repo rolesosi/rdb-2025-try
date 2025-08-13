@@ -17,9 +17,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: python-versions/setup-python@v4
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
-build-and-push-docker-image:
+build-and-push-images:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: tag
@@ -33,31 +33,41 @@ build-and-push-docker-image:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       
-      - name: Build Docker images
-        run: docker/setuo-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       
-      - name: Log in Github Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Fetch latest tag
         id: get_tag
         run: |
           git fetch --tags
-          TAG=$(git describe --tags --abbrev=0)
-          echo "tag=$TAG" >> $$GITHUB_OUTPUT
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          echo "tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker images
+      - name: Build and push API image
         uses: docker/build-push-action@v5.1.0
         with:
           context: .
           push: true
-          file: ./Dockerfile
-          target: prod
+          file: ./docker/api/Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/rdb-2025-try:${{ steps.get_tag.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/rdb-2025-try:latest
+            ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:${{ steps.get_tag.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:latest
+
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5.1.0
+        with:
+          context: .
+          push: true
+          file: ./docker/worker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:${{ steps.get_tag.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:latest
