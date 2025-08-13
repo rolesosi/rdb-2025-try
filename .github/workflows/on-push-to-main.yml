@@ -65,6 +65,17 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:${{ steps.get_tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-api:latest
 
+      - name: Make API image public
+        run: |
+          IMAGE_NAME="rdb-2025-try-api"
+          gh api \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            /user/packages/container/${IMAGE_NAME}/visibility \
+            -f visibility=public
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
+
       - name: Build and push Worker image
         uses: docker/build-push-action@v5.1.0
         with:
@@ -75,3 +86,14 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:${{ steps.get_tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:latest
+
+      - name: Make Worker image public
+        run: |
+          IMAGE_NAME="rdb-2025-try-worker"
+          gh api \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            /user/packages/container/${IMAGE_NAME}/visibility \
+            -f visibility=public
+        env:
+          GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
