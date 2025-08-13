@@ -68,10 +68,11 @@ jobs:
       - name: Make API image public
         run: |
           IMAGE_NAME="rdb-2025-try-api"
+          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
           gh api \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \
-            /user/packages/container/${IMAGE_NAME}/visibility \
+            /users/${{ github.repository_owner }}/packages/container/${IMAGE_NAME_LOWER}/visibility \
             -f visibility=public
         env:
           GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -90,10 +91,11 @@ jobs:
       - name: Make Worker image public
         run: |
           IMAGE_NAME="rdb-2025-try-worker"
+          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
           gh api \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \
-            /user/packages/container/${IMAGE_NAME}/visibility \
+            /users/${{ github.repository_owner }}/packages/container/${IMAGE_NAME_LOWER}/visibility \
             -f visibility=public
         env:
           GH_TOKEN: ${{ secrets.GHCR_TOKEN }}
