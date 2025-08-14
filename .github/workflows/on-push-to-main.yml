@@ -84,18 +84,22 @@ jobs:
         run: |
           OWNER="${{ github.repository_owner }}"
 
-          sleep 5
+          echo "📦 Instalando GitHub CLI..."
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+          echo "🔐 Autenticando no GitHub CLI..."
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
 
           for IMAGE_NAME in rdb-2025-try-api rdb-2025-try-worker; do
             IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
             echo "🔓 Tornando imagem $IMAGE_NAME_LOWER pública..."
             
             gh api \
-              --method POST \
+              --method PATCH \
               -H "Accept: application/vnd.github+json" \
-              "/users/${OWNER}/packages/container/${IMAGE_NAME_LOWER}/visibility" \
+              "/users/${OWNER}/packages/container/${IMAGE_NAME_LOWER}" \
               -f visibility='public'
           done
         env:
-#          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
