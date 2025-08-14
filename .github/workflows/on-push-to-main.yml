@@ -23,6 +23,9 @@ jobs:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: tag
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -79,17 +82,16 @@ jobs:
       - name: Make images public
         run: |
           OWNER="${{ github.repository_owner }}"
-          REPO="${{ github.event.repository.name }}"
 
           for IMAGE_NAME in rdb-2025-try-api rdb-2025-try-worker; do
             IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
             echo "🔓 Tornando imagem $IMAGE_NAME_LOWER pública..."
             
             gh api \
-              -X PATCH \
+              --method POST \
               -H "Accept: application/vnd.github+json" \
-              "/repos/${OWNER}/${REPO}/packages/container/${IMAGE_NAME_LOWER}/visibility" \
-              -f visibility=public
+              "/users/${OWNER}/packages/container/${IMAGE_NAME_LOWER}/visibility" \
+              -f visibility='public'
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
