@@ -85,11 +85,11 @@ jobs:
           OWNER="${{ github.repository_owner }}"
 
           echo "📦 Instalando GitHub CLI..."
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y gh
 
           echo "🔐 Autenticando no GitHub CLI..."
-          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+          echo "${{ secrets.GHCR_PAT }}" | gh auth login --with-token
 
           for IMAGE_NAME in rdb-2025-try-api rdb-2025-try-worker; do
             IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
@@ -101,5 +101,3 @@ jobs:
               "/users/${OWNER}/packages/container/${IMAGE_NAME_LOWER}" \
               -f visibility='public'
           done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
