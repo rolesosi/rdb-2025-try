@@ -1,4 +1,4 @@
-# Análise do Eixo Crítico C: Comunicação entre Worker e Payment Processors
+# 📌 Análise do Eixo Crítico C: Comunicação entre Worker e Payment Processors
 
 ## Contexto
 O eixo C trata da **integração do worker** com os **Payment Processors**, que processam os pagamentos.  
@@ -42,12 +42,13 @@ O worker é responsável por consumir tarefas do Redis e enviar requisições HT
   curl -X POST http://payment-processor-default:8080/payments \
     -H "Content-Type: application/json" \
     -d '{"correlationId":"11111111-1111-1111-1111-111111111111","amount":19.90}'
--  Envia um pagamento para o processor fallback
+
+- Envia um pagamento para o processor fallback
   ```bash
   curl -X POST http://payment-processor-fallback:8080/payments \
     -H "Content-Type: application/json" \
     -d '{"correlationId":"22222222-2222-2222-2222-222222222222","amount":9.90}'
-    
+
 ## 2. Validar resumos
 - Consultar resumo dos pagamentos processados
   ```bash
