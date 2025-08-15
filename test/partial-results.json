@@ -1,48 +1,48 @@
 {
   "participante": "anonymous",
-  "total_liquido": 135670.041,
-  "total_bruto": 219775.6,
-  "total_taxas": 11052.46,
+  "total_liquido": 122016.50175000002,
+  "total_bruto": 197666.70000000004,
+  "total_taxas": 9949.005000000003,
   "descricao": "'total_liquido' é sua pontuação final. Equivale ao seu lucro. Fórmula: total_liquido + (total_liquido * p99.bonus) - (total_liquido * multa.porcentagem)",
   "p99": {
-    "valor": "1340.06ms",
+    "valor": "1100.2ms",
     "bonus": "0%",
     "max_requests": 500,
     "descricao": "Fórmula para o bônus: max((11 - p99.valor) * 0.02, 0)"
   },
   "multa": {
     "porcentagem": 0.35,
-    "total": 73053.099,
+    "total": 65701.19325000001,
     "composicao": {
-      "num_inconsistencias": 7054,
+      "num_inconsistencias": 6557,
       "descricao": "Se 'num_inconsistencias' > 0, há multa de 35%."
     }
   },
   "caixa_dois": {
-    "detectado": true,
+    "detectado": false,
     "descricao": "Se 'lag' for negativo, significa que seu backend registrou mais pagamentos do que solicitado, automaticamente desclassificando sua submissão!"
   },
   "lag": {
-    "num_pagamentos_total": 11044,
-    "num_pagamentos_solicitados": 10758,
-    "lag": -286,
+    "num_pagamentos_total": 9933,
+    "num_pagamentos_solicitados": 12908,
+    "lag": 2975,
     "descricao": "Lag é a diferença entre a quantidade de solicitações de pagamentos e o que foi realmente computado pelo backend. Mostra a perda de pagamentos possivelmente por estarem enfileirados."
   },
   "pagamentos_solicitados": {
-    "qtd_sucesso": 10758,
-    "qtd_falha": 1194,
+    "qtd_sucesso": 12908,
+    "qtd_falha": 3,
     "descricao": "'qtd_sucesso' foram requests bem sucedidos para 'POST /payments' e 'qtd_falha' os requests com erro."
   },
   "pagamentos_realizados_default": {
-    "total_bruto": 219138.80000000002,
-    "num_pagamentos": 11012,
-    "total_taxas": 10956.94,
+    "total_bruto": 197010.00000000003,
+    "num_pagamentos": 9900,
+    "total_taxas": 9850.500000000002,
     "descricao": "Informações do backend sobre solicitações de pagamento para o Payment Processor Default."
   },
   "pagamentos_realizados_fallback": {
-    "total_bruto": 636.8000000000001,
-    "num_pagamentos": 32,
-    "total_taxas": 95.52000000000001,
+    "total_bruto": 656.7,
+    "num_pagamentos": 33,
+    "total_taxas": 98.505,
     "descricao": "Informações do backend sobre solicitações de pagamento para o Payment Processor Fallback."
   }
 }

@@ -2,7 +2,7 @@ import yaml
 import json
 
 # Caminhos dos arquivos
-docker_compose_path = "../docker-compose.yml"
+docker_compose_path = "../docker-compose.yaml"
 k6_results_path = "partial-results.json"  # ou o caminho gerado pelo rinha.js
 
 # Lê recursos do docker-compose
