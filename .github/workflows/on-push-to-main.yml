@@ -79,25 +79,3 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:${{ steps.get_tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/rdb-2025-try-worker:latest
-
-      - name: Make images public
-        run: |
-          OWNER="${{ github.repository_owner }}"
-
-          echo "📦 Instalando GitHub CLI..."
-          sudo apt-get update -y
-          sudo apt-get install -y gh
-
-          echo "🔐 Autenticando no GitHub CLI..."
-          echo "${{ secrets.GHCR_PAT }}" | gh auth login --with-token
-
-          for IMAGE_NAME in rdb-2025-try-api rdb-2025-try-worker; do
-            IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
-            echo "🔓 Tornando imagem $IMAGE_NAME_LOWER pública..."
-            
-            gh api \
-              --method PATCH \
-              -H "Accept: application/vnd.github+json" \
-              "/users/${OWNER}/packages/container/${IMAGE_NAME_LOWER}" \
-              -f visibility='public'
-          done
