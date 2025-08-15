@@ -1,6 +1,35 @@
 # 📌 Eixo Crítico A — Redis
 
-Este documento descreve como validar se o Redis **não é a causa do problema** no fluxo entre APIs e Worker.
+## Contexto
+O eixo A trata da **integridade e disponibilidade do Redis**, que funciona como fila de pagamentos (`payment_queue`) entre as APIs e o worker.  
+Problemas neste eixo podem gerar:
+
+- Tarefas perdidas ou processadas em duplicidade.
+- Fila acumulada e atrasos no processamento.
+- Inconsistência nos resumos `/payments-summary`.
+
+Atualmente, há **uma instância de Redis**, configurada com limite de CPU e memória compartilhada com os demais serviços.
+
+---
+
+## Possíveis Fontes de Problema
+
+1. **Conexões intermitentes**
+   - `ConnectionResetError` indica que a conexão foi fechada pelo servidor Redis.
+   - Pode ocorrer devido a limite de recursos do container.
+
+2. **Capacidade da fila**
+   - Se a fila `payment_queue` crescer além da memória alocada, Redis pode começar a descartar tarefas ou falhar.
+
+3. **Timeouts do worker**
+   - BLPOP possui timeout de 5 segundos.
+   - Se o Redis estiver sobrecarregado, pode gerar atrasos na leitura de tarefas.
+
+4. **Configuração de rede**
+   - O Redis deve estar acessível a partir de todos os containers que precisam dele (api1, api2, worker).
+
+5. **Falhas de persistência**
+   - Redis sem persistência (RDB/AOF) pode perder dados em reinício, mas no desafio apenas memória é usada.
 
 ---
 
