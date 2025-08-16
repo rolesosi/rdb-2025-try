@@ -28,7 +28,7 @@ services:
     environment:
       - INSTANCE=1
       - REDIS_URL=redis://redis:6379/0  
-      - BATCH_SIZE=100
+      - BATCH_SIZE=500
       - LOG_LEVEL=DEBUG
     networks:
       - backend
@@ -46,7 +46,7 @@ services:
       resources:
         limits:
           cpus: "0.45"
-          memory: "85MB"
+          memory: "95MB"
 
   api2:
     build: 
@@ -56,7 +56,7 @@ services:
     environment:
       - INSTANCE=2
       - REDIS_URL=redis://redis:6379/0  
-      - BATCH_SIZE=100
+      - BATCH_SIZE=500
       - LOG_LEVEL=DEBUG
     networks:
       - backend
@@ -74,7 +74,7 @@ services:
       resources:
         limits:
           cpus: "0.45"
-          memory: "85MB"
+          memory: "95MB"
 
   worker:
     build: 
@@ -85,7 +85,7 @@ services:
       - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
       - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
       - REDIS_URL=redis://redis:6379/0
-      - BATCH_SIZE=25
+      - BATCH_SIZE=50
       - MAX_RETRIES=3
       - HTTP_TIMEOUT=2.5
     depends_on:
@@ -98,7 +98,7 @@ services:
       resources:
         limits:
           cpus: "0.45"
-          memory: "85MB"
+          memory: "105MB"
 
   redis:
     image: redis:7-alpine
@@ -116,7 +116,7 @@ services:
       resources:
         limits:
           cpus: "0.12"
-          memory: "80MB"
+          memory: "40MB"
 
 networks:
   backend:
