@@ -28,7 +28,7 @@ services:
     environment:
       - INSTANCE=1
       - REDIS_URL=redis://redis:6379/0  
-      - BATCH_SIZE=10
+      - BATCH_SIZE=100
     networks:
       - backend
       - payment-processor      
@@ -55,7 +55,7 @@ services:
     environment:
       - INSTANCE=2
       - REDIS_URL=redis://redis:6379/0  
-      - BATCH_SIZE=10
+      - BATCH_SIZE=100
     networks:
       - backend
       - payment-processor      
@@ -83,7 +83,7 @@ services:
       - DEFAULT_PROCESSOR_URL=http://payment-processor-default:8080
       - FALLBACK_PROCESSOR_URL=http://payment-processor-fallback:8080
       - REDIS_URL=redis://redis:6379/0
-      - BATCH_SIZE=8
+      - BATCH_SIZE=25
       - MAX_RETRIES=3
       - HTTP_TIMEOUT=2.5
     depends_on:

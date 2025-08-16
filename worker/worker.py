@@ -37,7 +37,6 @@ async def parse_payment(task_json: str) -> PaymentTask:
                 "amount": float(amount_str),
                 "timestamp": time.time(),
                 "processingId": f"legacy:{correlation_id}:{time.time()}",
-                "attempts": 0
             }
         raise
 
@@ -50,7 +49,7 @@ async def process_with_retry(
     correlation_id = payment["correlationId"]
     payment_data = {"correlationId": correlation_id, "amount": payment["amount"]}
 
-    for attempt in range(payment.get("attempts", 0), MAX_RETRIES):
+    for attempt in range(MAX_RETRIES):
         try:
             if attempt > 0:
                 backoff = BACKOFF_BASE * (2 ** attempt) * (0.5 + random.random())
@@ -79,12 +78,17 @@ async def fetch_batch(redis: aioredis.Redis, batch_size: int) -> List[str]:
         batch.extend([r for r in results if r is not None])
     return batch
 
-async def update_stats(redis: aioredis.Redis, results: List[Tuple[bool, str, str, float]]):
-    if not results:
+async def update_stats_and_release_locks(
+    redis: aioredis.Redis,
+    stats_updates: List[Tuple[bool, str, str, float]],
+    locks_to_release: List[str],
+):
+    if not stats_updates and not locks_to_release:
         return
 
     pipe = redis.pipeline()
-    for success, processor_type, corr_id, amount in results:
+    # Stats
+    for success, processor_type, corr_id, amount in stats_updates:
         if success:
             pipe.sadd("processed_payments", corr_id)
             if processor_type == "default":
@@ -95,13 +99,19 @@ async def update_stats(redis: aioredis.Redis, results: List[Tuple[bool, str, str
                 pipe.hincrbyfloat("summary", "fallback_amount", amount)
         else:
             pipe.sadd("failed_payments", corr_id)
+
+    # Libera locks sem bloquear o Redis
+    if locks_to_release:
+        pipe.unlink(*locks_to_release)
+
     await pipe.execute()
 
 async def process_batch(session: aiohttp.ClientSession, redis: aioredis.Redis, batch: List[str]):
     if not batch:
         return
 
-    payments = []
+    # Parse
+    payments: List[PaymentTask] = []
     for task_json in batch:
         try:
             payment = await parse_payment(task_json)
@@ -112,42 +122,55 @@ async def process_batch(session: aiohttp.ClientSession, redis: aioredis.Redis, b
     if not payments:
         return
 
-    # Process default processor
-    tasks = [process_with_retry(session, DEFAULT_PROCESSOR_URL, p, "default") for p in payments]
-    default_results = await asyncio.gather(*tasks, return_exceptions=True)
+    # Default processor (paralelo)
+    default_tasks = [process_with_retry(session, DEFAULT_PROCESSOR_URL, p, "default") for p in payments]
+    default_results = await asyncio.gather(*default_tasks, return_exceptions=True)
 
-    # Process fallback for failures
-    fallback_tasks = []
-    fallback_indices = []
+    # Fallback apenas para falhas reais do default
+    fallback_indices: List[int] = []
+    fallback_tasks: List[asyncio.Task] = []
     for i, result in enumerate(default_results):
-        if isinstance(result, Exception) or not result[0]:
-            fallback_tasks.append(process_with_retry(session, FALLBACK_PROCESSOR_URL, payments[i], "fallback"))
+        failed = isinstance(result, Exception) or (isinstance(result, tuple) and not result[0])
+        if failed:
             fallback_indices.append(i)
+            fallback_tasks.append(process_with_retry(session, FALLBACK_PROCESSOR_URL, payments[i], "fallback"))
 
     fallback_results = await asyncio.gather(*fallback_tasks, return_exceptions=True) if fallback_tasks else []
 
-    stats_updates = []
+    # Consolidar resultados finais por pagamento
+    stats_updates: List[Tuple[bool, str, str, float]] = []
+    locks_to_release: List[str] = []
 
-    # Default successes
-    for i, result in enumerate(default_results):
-        if not isinstance(result, Exception) and result[0]:
-            stats_updates.append((True, "default", result[2], payments[i]["amount"]))
+    fallback_by_index = {fallback_indices[j]: fallback_results[j] for j in range(len(fallback_results))}
+
+    for i, payment in enumerate(payments):
+        corr_id = payment["correlationId"]
+        amount = float(payment["amount"])
+        lock_key = f"processing:{corr_id}"
+        locks_to_release.append(lock_key)
+
+        # Resultado default
+        default_ok = (not isinstance(default_results[i], Exception)) and bool(default_results[i][0])
+
+        if default_ok:
+            # Sucesso no default
+            stats_updates.append((True, "default", corr_id, amount))
+            continue
+
+        # Tentar fallback (se houver)
+        if i in fallback_by_index:
+            fb_res = fallback_by_index[i]
+            fb_ok = (not isinstance(fb_res, Exception)) and bool(fb_res[0])
+            if fb_ok:
+                stats_updates.append((True, "fallback", corr_id, amount))
+            else:
+                # Falha definitiva (default e fallback)
+                stats_updates.append((False, "fallback", corr_id, amount))
         else:
-            payments[i]["attempts"] = payments[i].get("attempts", 0) + 1
-            if payments[i]["attempts"] >= MAX_RETRIES:
-                stats_updates.append((False, "default", payments[i]["correlationId"], payments[i]["amount"]))
+            # Falha definitiva (default falhou e não tentou fallback por algum motivo)
+            stats_updates.append((False, "default", corr_id, amount))
 
-    # Fallback successes
-    for j, result in enumerate(fallback_results):
-        original_idx = fallback_indices[j]
-        if not isinstance(result, Exception) and result[0]:
-            stats_updates.append((True, "fallback", result[2], payments[original_idx]["amount"]))
-        else:
-            payments[original_idx]["attempts"] = payments[original_idx].get("attempts", 0) + 1
-            if payments[original_idx]["attempts"] >= MAX_RETRIES:
-                stats_updates.append((False, "fallback", payments[original_idx]["correlationId"], payments[original_idx]["amount"]))
-
-    await update_stats(redis, stats_updates)
+    await update_stats_and_release_locks(redis, stats_updates, locks_to_release)
 
     success_count = len([r for r in stats_updates if r[0]])
     failure_count = len([r for r in stats_updates if not r[0]])
@@ -160,7 +183,9 @@ async def main():
     while True:
         redis = None
         try:
-            redis = await aioredis.from_url(REDIS_URL, decode_responses=True, max_connections=10, health_check_interval=30.0)
+            redis = await aioredis.from_url(
+                REDIS_URL, decode_responses=True, max_connections=10, health_check_interval=30.0
+            )
 
             conn = aiohttp.TCPConnector(limit=100, limit_per_host=20, enable_cleanup_closed=True)
             async with aiohttp.ClientSession(connector=conn) as session:
@@ -168,7 +193,7 @@ async def main():
                     try:
                         current_time = time.time()
                         if current_time - cleanup_timer > 30:
-                            # Optionally, implement cleanup_stale_locks(redis)
+                            # Hook para futuras limpezas de chaves órfãs, se necessário
                             cleanup_timer = current_time
 
                         batch = await fetch_batch(redis, BATCH_SIZE)

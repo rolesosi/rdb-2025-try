@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
 import redis.asyncio as aioredis
 import json
 import os
 import time
 import logging
-from typing import Optional
+from typing import Optional, List
 
 # Logging
 logging.basicConfig(level=logging.WARNING)
@@ -76,14 +76,14 @@ async def health():
 # Payment queue
 @app.post("/payments", response_model=PaymentResponse, status_code=202)
 async def create_payment(payment: PaymentRequest, redis: aioredis.Redis = Depends(get_redis)):
+    lock_key = f"processing:{payment.correlationId}"
+    lock_set = False
     try:
-        lock_key = f"processing:{payment.correlationId}"
-        # Tenta criar o lock
-        acquired = await redis.set(lock_key, f"{instance_id}:{time.time()}", nx=True, ex=300)
-        if not acquired:
+        # Lock para deduplicar por correlationId
+        lock_set = await redis.set(lock_key, f"{instance_id}:{time.time()}", nx=True, ex=300)
+        if not lock_set:
             return PaymentResponse(status="already_locked", correlationId=payment.correlationId, instance=instance_id)
 
-        # Cria tarefa
         task_data = {
             "correlationId": payment.correlationId,
             "amount": payment.amount,
@@ -91,14 +91,22 @@ async def create_payment(payment: PaymentRequest, redis: aioredis.Redis = Depend
             "timestamp": time.time(),
             "apiInstance": instance_id
         }
+
         pipe = redis.pipeline()
         pipe.rpush("payment_queue", json.dumps(task_data))
         pipe.sadd("submitted_payments", payment.correlationId)
         await pipe.execute()
 
         return PaymentResponse(status="queued", correlationId=payment.correlationId, instance=instance_id)
+
     except Exception as e:
+        # Se falhou depois do lock, libere o lock para não travar novas tentativas
         logger.error(f"Error queueing payment: {e}")
+        try:
+            if lock_set:
+                await redis.unlink(lock_key)
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail="Failed to queue payment")
 
 # Summary
@@ -112,17 +120,24 @@ async def payments_summary(redis: aioredis.Redis = Depends(get_redis)):
         pipe.hget("summary", "fallback_amount")
         pipe.scard("submitted_payments")
         pipe.scard("processed_payments")
+        pipe.scard("failed_payments")  # <-- considerar falhas no gap
         results = await pipe.execute()
 
         default_requests = int(results[0] or 0)
-        default_amount = float(results[1] or 0)
+        default_amount = float(results[1] or 0.0)
         fallback_requests = int(results[2] or 0)
-        fallback_amount = float(results[3] or 0)
+        fallback_amount = float(results[3] or 0.0)
 
-        submitted_count = results[4]
-        processed_count = results[5]
-        if submitted_count != processed_count:
-            logger.warning(f"Consistency gap: {submitted_count} submitted vs {processed_count} processed")
+        submitted_count = int(results[4] or 0)
+        processed_count = int(results[5] or 0)
+        failed_count = int(results[6] or 0)
+
+        # Gap agora considera sucessos + falhas
+        accounted = processed_count + failed_count
+        if submitted_count != accounted:
+            logger.warning(
+                f"Consistency gap: submitted={submitted_count} vs accounted(processed+failed)={accounted}"
+            )
 
         return BackendSummary(
             default=PaymentSummary(totalRequests=default_requests, totalAmount=default_amount),
@@ -131,25 +146,29 @@ async def payments_summary(redis: aioredis.Redis = Depends(get_redis)):
     except Exception as e:
         logger.error(f"Error retrieving summary: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve summary")
-    
+
 @app.post("/purge-payments", status_code=200)
 async def purge_payments(redis: aioredis.Redis = Depends(get_redis)):
     try:
-        # Use pipeline for atomic operation with more keys to purge
+        # Apaga 'processing:*' via SCAN + UNLINK para não bloquear
+        to_unlink: List[str] = []
+        async for key in redis.scan_iter(match="processing:*", count=100):
+            to_unlink.append(key)
+            if len(to_unlink) >= 500:
+                await redis.unlink(*to_unlink)
+                to_unlink.clear()
+        if to_unlink:
+            await redis.unlink(*to_unlink)
+
+        # Limpa estruturas principais de forma não-bloqueante
         pipe = redis.pipeline()
-        
-        # Get all processing keys to delete
-        processing_keys = await redis.keys("processing:*")
-        if processing_keys:
-            pipe.delete(*processing_keys)
-        
-        # Delete all tracking data
-        pipe.delete("payment_queue")
-        pipe.delete("summary")
-        pipe.delete("submitted_payments")
-        pipe.delete("processed_payments")
-        
+        pipe.unlink("payment_queue")
+        pipe.unlink("summary")
+        pipe.unlink("submitted_payments")
+        pipe.unlink("processed_payments")
+        pipe.unlink("failed_payments")
         await pipe.execute()
+
         return {"status": "purged"}
     except Exception as e:
         logger.error(f"Error purging payments: {e}")
