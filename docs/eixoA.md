@@ -52,7 +52,7 @@ retorno esperado: PONG
   ```bash
   docker exec -it rdb-2025-redis redis-cli monitor
 
-  📌 Indícios de problema:
+📌 Indícios de problema:
 
   - Explosões de comandos seguidos de longos períodos sem nada.
   - Muitos MGET/SET repetidos e demorados.
@@ -67,7 +67,7 @@ retorno esperado: PONG
   docker exec -it rdb-2025-api2 redis-cli get testkey
   docker exec -it rdb-2025-worker redis-cli get testkey
 
-  📌 Se todas as instâncias enxergarem o valor from-api1, não há falha de consistência.  
+📌 Se todas as instâncias enxergarem o valor from-api1, não há falha de consistência.  
 
 ## 4. Monitoramento de Recursos
 O Redis no docker-compose está configurado com:
