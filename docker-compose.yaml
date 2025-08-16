@@ -95,7 +95,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.35"
+          cpus: "0.45"
           memory: "85MB"
 
   redis:
