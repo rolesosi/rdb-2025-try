@@ -29,6 +29,7 @@ services:
       - INSTANCE=1
       - REDIS_URL=redis://redis:6379/0  
       - BATCH_SIZE=100
+      - LOG_LEVEL=DEBUG
     networks:
       - backend
       - payment-processor      
@@ -56,6 +57,7 @@ services:
       - INSTANCE=2
       - REDIS_URL=redis://redis:6379/0  
       - BATCH_SIZE=100
+      - LOG_LEVEL=DEBUG
     networks:
       - backend
       - payment-processor      

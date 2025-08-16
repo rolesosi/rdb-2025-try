@@ -8,7 +8,12 @@ import logging
 from typing import Optional, List
 
 # Logging
-logging.basicConfig(level=logging.WARNING)
+#logging.basicConfig(level=logging.WARNING)
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Modelos
@@ -44,16 +49,43 @@ async def startup():
     for attempt in range(5):
         try:
             redis_client = await aioredis.from_url(
-                REDIS_URL, decode_responses=True, max_connections=50, health_check_interval=30.0
+                REDIS_URL, 
+                decode_responses=True, 
+                max_connections=50, 
+                health_check_interval=30.0,
+                retry_on_timeout=True, 
+                socket_keepalive=True 
             )
             await redis_client.ping()
-            logger.info(f"Connected to Redis (attempt {attempt+1})")
+            logger.info(f"Connected to Redis (attempt {attempt+1}): {REDIS_URL}")
+
+             # Initialize counters if needed
+            await ensure_counters_initialized(redis_client)
+            break
             break
         except Exception as e:
             logger.warning(f"Redis connection failed (attempt {attempt+1}): {e}")
             if attempt == 4:
                 raise
             time.sleep(1)
+
+async def ensure_counters_initialized(redis):
+    """Ensure all required counters and data structures exist."""
+    try:
+        pipe = redis.pipeline()
+        # Check if summary hash exists
+        pipe.hexists("summary", "success")
+        # Initialize if needed
+        if not await pipe.execute()[0]:
+            logger.info("Initializing counters")
+            init_pipe = redis.pipeline()
+            init_pipe.hset("summary", "success", 0)
+            init_pipe.hset("summary", "success_amount", 0.0)
+            init_pipe.hset("summary", "fallback", 0) 
+            init_pipe.hset("summary", "fallback_amount", 0.0)
+            await init_pipe.execute()
+    except Exception as e:
+        logger.warning(f"Failed to initialize counters: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -71,7 +103,28 @@ async def get_redis():
 # Healthcheck
 @app.get("/health")
 async def health():
-    return {"status": "ok", "instance": instance_id}
+    status = "ok"
+    redis_status = "unknown"
+    
+    if redis_client:
+        try:
+            # Test Redis connection
+            ping_response = await redis_client.ping()
+            redis_status = "connected" if ping_response else "error"
+        except Exception as e:
+            logger.warning(f"Redis health check failed: {e}")
+            redis_status = "error"
+            status = "degraded"
+    else:
+        redis_status = "disconnected"
+        status = "degraded"
+        
+    return {
+        "status": status,
+        "instance": instance_id,
+        "redis": redis_status,
+        "timestamp": time.time()
+    }
 
 # Payment queue
 @app.post("/payments", response_model=PaymentResponse, status_code=202)
@@ -82,21 +135,31 @@ async def create_payment(payment: PaymentRequest, redis: aioredis.Redis = Depend
         # Lock para deduplicar por correlationId
         lock_set = await redis.set(lock_key, f"{instance_id}:{time.time()}", nx=True, ex=300)
         if not lock_set:
-            return PaymentResponse(status="already_locked", correlationId=payment.correlationId, instance=instance_id)
+            existing_lock = await redis.get(lock_key)
+            logger.info(f"Payment already locked: {payment.correlationId}, lock: {existing_lock}")
+            return PaymentResponse(
+                status="already_locked", 
+                correlationId=payment.correlationId, 
+                instance=instance_id
+            ),409
 
         task_data = {
             "correlationId": payment.correlationId,
             "amount": payment.amount,
             "processingId": f"{payment.correlationId}:{instance_id}:{time.time()}",
             "timestamp": time.time(),
-            "apiInstance": instance_id
+            "apiInstance": instance_id,
+            "status": "pending"  # Add explicit status tracking
         }
 
         pipe = redis.pipeline()
         pipe.rpush("payment_queue", json.dumps(task_data))
         pipe.sadd("submitted_payments", payment.correlationId)
+        pipe.sadd("pending_payments", payment.correlationId)
+
         await pipe.execute()
 
+        logger.info(f"Payment queued: {payment.correlationId}, amount: {payment.amount}")
         return PaymentResponse(status="queued", correlationId=payment.correlationId, instance=instance_id)
 
     except Exception as e:
@@ -105,8 +168,8 @@ async def create_payment(payment: PaymentRequest, redis: aioredis.Redis = Depend
         try:
             if lock_set:
                 await redis.unlink(lock_key)
-        except Exception:
-            pass
+        except Exception as cleanup_error:
+            logger.error(f"Failed to clean up lock: {cleanup_error}")
         raise HTTPException(status_code=500, detail="Failed to queue payment")
 
 # Summary
@@ -121,6 +184,7 @@ async def payments_summary(redis: aioredis.Redis = Depends(get_redis)):
         pipe.scard("submitted_payments")
         pipe.scard("processed_payments")
         pipe.scard("failed_payments")  # <-- considerar falhas no gap
+        pipe.scard("pending_payments")  # Add pending_payments tracking
         results = await pipe.execute()
 
         default_requests = int(results[0] or 0)
@@ -131,12 +195,15 @@ async def payments_summary(redis: aioredis.Redis = Depends(get_redis)):
         submitted_count = int(results[4] or 0)
         processed_count = int(results[5] or 0)
         failed_count = int(results[6] or 0)
+        pending_count = int(results[7] or 0)
 
         # Gap agora considera sucessos + falhas
         accounted = processed_count + failed_count
         if submitted_count != accounted:
             logger.warning(
-                f"Consistency gap: submitted={submitted_count} vs accounted(processed+failed)={accounted}"
+                f"Consistency gap: submitted={submitted_count} vs "
+                f"accounted(processed={processed_count} + failed={failed_count} + "
+                f"pending={pending_count}) = {accounted}"
             )
 
         return BackendSummary(
